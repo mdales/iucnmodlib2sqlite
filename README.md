@@ -1,0 +1,3 @@
+A small script for taking the local cache of IUCN data from [iucn-modlib](https://gitlab.com/daniele.baisero/iucn-modlib) format folders of CSV files and using instead an SQLite database.
+
+When running batch jobs using IUCN data it's always best to first fetch the data you need for an experiment, and then do the bulk processing with that, rather than trust that your internet will be stable, or you'll not trip the IUCN API rate limiter, etc.
