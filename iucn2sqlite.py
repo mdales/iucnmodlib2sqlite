@@ -20,13 +20,17 @@ CREATE TABLE IF NOT EXISTS taxonomy(
 	infraAuthority VARCHAR(255),
 	subpopulationName VARCHAR(255),
 	authority VARCHAR(255),
-	taxonomicNotes TEXT
+	taxonomicNotes TEXT,
+
+	assessment INTEGER NOT NULL DEFAULT 0,
+	elevationLower INTEGER NOT NULL DEFAULT -500,
+	elevationUpper INTEGER NOT NULL DEFAULT 9000
 )
 """
 TAXONOMY_INDEXES = [
 	"CREATE UNIQUE INDEX IF NOT EXISTS taxonomy_id_index ON taxonomy(id)"
 ]
-TAXONOMY_INSERT = "INSERT INTO taxonomy VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+TAXONOMY_INSERT = "INSERT INTO taxonomy VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
 HABITAT_TABLE = """
 CREATE TABLE IF NOT EXISTS habitat(
@@ -100,7 +104,8 @@ for path in os.listdir():
 		continue
 	taxonomies = pd.read_csv(taxonmy_filename)
 	for tuple in taxonomies.itertuples():
-		res = conn.execute(TAXONOMY_INSERT, tuple[1:])
+		row = tuple[1:] + (0, -500, 9000)
+		res = conn.execute(TAXONOMY_INSERT, row)
 		assert res.rowcount == 1
 
 	habitat_filename = os.path.join(path, 'habitats.csv')
@@ -118,6 +123,30 @@ for path in os.listdir():
 
 		res = conn.execute(TAXONOMY_HABITAT_M2M_INSERT, (tuple[2], lastrowid))
 		assert res.rowcount == 1
+
+	other_data_filename = os.path.join(path, 'all_other_fields.csv')
+	other_data = pd.read_csv(other_data_filename)
+	for _, tuple in other_data.iterrows():
+		species_id = tuple['internalTaxonId']
+
+		try:
+			assessment = int(tuple['assessmentId'])
+			res = conn.execute("UPDATE taxonomy SET assessment = ? WHERE id == ?", (assessment, species_id))
+			assert res.rowcount == 1
+		except ValueError:
+			pass
+
+		try:
+			elevation_lower = int(tuple['ElevationLower.limit'])
+			elevation_upper = int(tuple['ElevationUpper.limit'])
+			if elevation_lower < elevation_upper:
+				elevation_lower = max(-500, elevation_lower)
+				elevation_upper = min(9000, elevation_upper)
+				res = conn.execute("UPDATE taxonomy SET elevationLower = ?, elevationUpper = ? WHERE id == ?", (elevation_lower, elevation_upper, species_id))
+				assert res.rowcount == 1
+		except ValueError:
+			pass
+
 
 	common_names_filename = os.path.join(path, 'common_names.csv')
 	common_names = pd.read_csv(common_names_filename)
