@@ -36,29 +36,29 @@ HABITAT_TABLE = """
 CREATE TABLE IF NOT EXISTS habitat(
 	id INTEGER UNIQUE PRIMARY KEY ASC,
 	code VARCHAR(16) UNIQUE NOT NULL,
-	name VARCHAR(255) NOT NULL,
-	majorImportance INTEGER DEFAULT 0,
-	season VARCHAR(32),
-	suitability VARCHAR(255)
+	name VARCHAR(255) NOT NULL
 )
 """
 HABITAT_INDEXES = [
 	"CREATE UNIQUE INDEX IF NOT EXISTS habitat_id_index ON habitat(id)",
 	"CREATE UNIQUE INDEX IF NOT EXISTS habitat_code_index ON habitat(code)"
 ]
-HABITAT_INSERT = "INSERT INTO habitat(code, name, majorImportance, season, suitability) VALUES(?, ?, ?, ?, ?) ON CONFLICT DO NOTHING"
+HABITAT_INSERT = "INSERT INTO habitat(code, name) VALUES(?, ?) ON CONFLICT DO NOTHING"
 
 TAXONOMY_HABITAT_M2M_TABLE = """
 CREATE TABLE IF NOT EXISTS taxonomy_habitat_m2m(
 	taxonomy INTEGER NOT NULL,
-	habitat INTEGER NOT NULL
+	habitat INTEGER NOT NULL,
+	majorImportance INTEGER DEFAULT 0,
+	season VARCHAR(32),
+	suitability VARCHAR(255)
 )
 """
 TAXONOMY_HABITAT_M2M_INDEXES = [
 	"CREATE INDEX IF NOT EXISTS taxonomy_habitat_m2m_taxonomy_index ON taxonomy_habitat_m2m(taxonomy)",
 	"CREATE INDEX IF NOT EXISTS taxonomy_habitat_m2m_habitat_index ON taxonomy_habitat_m2m(habitat)"
 ]
-TAXONOMY_HABITAT_M2M_INSERT = "INSERT INTO taxonomy_habitat_m2m VALUES(?, ?)"
+TAXONOMY_HABITAT_M2M_INSERT = "INSERT INTO taxonomy_habitat_m2m VALUES(?, ?, ?, ?, ?)"
 
 COMMON_NAMES_TABLE = """
 CREATE TABLE IF NOT EXISTS common_names (
@@ -111,7 +111,7 @@ for path in os.listdir():
 	habitat_filename = os.path.join(path, 'habitats.csv')
 	habitats = pd.read_csv(habitat_filename)
 	for tuple in habitats.itertuples():
-		res = conn.execute(HABITAT_INSERT, tuple[4:])
+		res = conn.execute(HABITAT_INSERT, tuple[4:6])
 
 		# because of duplicates, the above line may not do an insert as the data was already there
 		# and so we need to do a bit more work here
@@ -121,7 +121,7 @@ for path in os.listdir():
 			assert len(res) == 1
 			lastrowid = res[0][0]
 
-		res = conn.execute(TAXONOMY_HABITAT_M2M_INSERT, (tuple[2], lastrowid))
+		res = conn.execute(TAXONOMY_HABITAT_M2M_INSERT, (tuple[2], lastrowid, tuple[6], tuple[7], tuple[8]))
 		assert res.rowcount == 1
 
 	other_data_filename = os.path.join(path, 'all_other_fields.csv')
