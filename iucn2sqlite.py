@@ -49,9 +49,9 @@ TAXONOMY_HABITAT_M2M_TABLE = """
 CREATE TABLE IF NOT EXISTS taxonomy_habitat_m2m(
 	taxonomy INTEGER NOT NULL,
 	habitat INTEGER NOT NULL,
-	majorImportance INTEGER DEFAULT 0,
-	season VARCHAR(32),
-	suitability VARCHAR(255)
+	majorImportance INTEGER NOT NULL DEFAULT 0,
+	season VARCHAR(32) NOT NULL DEFAULT "Seasonal Occurrence Unknown",
+	suitability VARCHAR(32) NOT NULL DEFAULT "Unknown"
 )
 """
 TAXONOMY_HABITAT_M2M_INDEXES = [
@@ -121,7 +121,31 @@ for path in os.listdir():
 			assert len(res) == 1
 			lastrowid = res[0][0]
 
-		res = conn.execute(TAXONOMY_HABITAT_M2M_INSERT, (tuple[2], lastrowid, tuple[6], tuple[7], tuple[8]))
+		# As per comment from Daniele in iucn_modlib, the batch data from IUCN has hygine issues, so
+		# we need to do some tidying on import to make it more like the API responses
+		importance = tuple[6]
+		if importance not in ['Yes', 'No']:
+			importance = 'No'
+
+		season = tuple[7]
+		season_mapping = {
+			'passage': 'Passage',
+			'resident': 'Resident',
+			'breeding': 'Breeding Season',
+			'non-breeding': 'Non-Breeding Saeson',
+			'unknown': 'Seasonal Occurrence Unknown'
+		}
+		if season in season_mapping:
+			season = season_mapping[season]
+		if season not in ['Passage', 'Resident', 'Breeding Season', 'Non-Breeding Season', 'Seasonal Occurrence Unknown']:
+			print(season)
+			season = 'Seasonal Occurrence Unknown'
+
+		suitability = tuple[8]
+		if suitability not in ["Suitable", "Marginal", "Unknown"]:
+			suitability = "Unknown"
+
+		res = conn.execute(TAXONOMY_HABITAT_M2M_INSERT, (tuple[2], lastrowid, importance == 'Yes', season, suitability))
 		assert res.rowcount == 1
 
 	other_data_filename = os.path.join(path, 'all_other_fields.csv')
